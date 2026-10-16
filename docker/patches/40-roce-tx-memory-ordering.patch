@@ -1,0 +1,22 @@
+--- a/src/hololink/operators/roce_transmitter/roce_transmitter.cpp
++++ b/src/hololink/operators/roce_transmitter/roce_transmitter.cpp
+@@ -244,6 +244,19 @@
+     {
+         int access = IBV_ACCESS_LOCAL_WRITE | IBV_ACCESS_REMOTE_WRITE;
+ 
++        int device_id = 0;
++        CUDA_CHECK(cudaGetDevice(&device_id));
++        int integrated = 0;
++        CUDA_CHECK(cudaDeviceGetAttribute(&integrated, cudaDevAttrIntegrated, device_id));
++        if (!integrated) {
++            const unsigned int sync_memops = 1;
++            CudaCheck(cuPointerSetAttribute(
++                &sync_memops, CU_POINTER_ATTRIBUTE_SYNC_MEMOPS,
++                reinterpret_cast<CUdeviceptr>(addr)));
++            HSB_LOG_INFO("RoCE transmitter GPU staging: SYNC_MEMOPS enabled for p={} size={}",
++                addr, size);
++        }
++
+         using namespace hololink::common;
+         CUresult cu_result = cuMemGetHandleForAddressRange(
+             (void*)&dmabuf_fd_, reinterpret_cast<CUdeviceptr>(addr),

@@ -1,0 +1,138 @@
+diff --git a/src/hololink/operators/roce_receiver/roce_receiver.cpp b/src/hololink/operators/roce_receiver/roce_receiver.cpp
+index dac8409..8cd27ff 100644
+--- a/src/hololink/operators/roce_receiver/roce_receiver.cpp
++++ b/src/hololink/operators/roce_receiver/roce_receiver.cpp
+@@ -20,6 +20,7 @@
+ #include "roce_receiver.hpp"
+
+ #include <arpa/inet.h>
++#include <cstdlib>
+ #include <fcntl.h>
+ #include <poll.h>
+ #include <stdio.h>
+@@ -557,6 +558,13 @@ void RoceReceiver::blocking_monitor()
+         }
+     };
+
++    const bool diagnostics = ::getenv("HOLOLINK_ROCE_DIAGNOSTICS") != nullptr;
++    unsigned completion_errors = 0;
++    if (diagnostics) {
++        HSB_LOG_INFO("RoCE monitor started: nic={} port={} qp_num={} cq_entries={} async_fd={} memory={}",
++            ibv_name_, ibv_port_, ib_qp_->qp_num, ib_cq_->cqe, ib_context_->async_fd,
++            host_buffer_ ? "pinned-host" : "gpu-dmabuf");
++    }
+     unsigned frame_count = 0;
+     struct timespec event_time;
+
+@@ -617,11 +625,12 @@ void RoceReceiver::blocking_monitor()
+
+                 if (ib_wc.status != IBV_WC_SUCCESS) {
+                     HSB_LOG_ERROR(
+-                        "CQ error: qp_num={} wr_id={:#x} status={} ({}) vendor_err={:#x} opcode={} byte_cnt={} wc_flags={:#x}",
+-                        ib_wc.qp_num, ib_wc.wr_id,
++                        "RoCE CQ error: nic={} qp_num={} wr_id={:#x} status={} ({}) vendor_err={:#x}",
++                        ibv_name_, ib_wc.qp_num, ib_wc.wr_id,
+                         static_cast<int>(ib_wc.status), ibv_wc_status_str(ib_wc.status),
+-                        ib_wc.vendor_err, static_cast<int>(ib_wc.opcode),
+-                        ib_wc.byte_len, ib_wc.wc_flags);
++                        ib_wc.vendor_err);
++                    // Other WC fields are undefined on error according to ibverbs.
++                    completion_errors++;
+                     check_async_events();
+                     continue;
+                 }
+@@ -637,6 +646,13 @@ void RoceReceiver::blocking_monitor()
+
+                 const uint32_t imm_data = ntohl(ib_wc.imm_data); // ibverbs just gives us the bytes here
+                 const uint32_t page = page_from_imm(imm_data);
++                if (diagnostics && frame_count <= 16) {
++                    HSB_LOG_INFO("RoCE CQ completion: frame={} qp_num={} wr_id={:#x} status={} ({}) opcode={} byte_len={} wc_flags={:#x} imm={:#x} page={} psn={}",
++                        frame_count, ib_wc.qp_num, ib_wc.wr_id,
++                        static_cast<int>(ib_wc.status), ibv_wc_status_str(ib_wc.status),
++                        static_cast<int>(ib_wc.opcode), ib_wc.byte_len, ib_wc.wc_flags,
++                        imm_data, page, psn_from_imm(imm_data));
++                }
+                 if (page >= pages_) {
+                     throw std::runtime_error(fmt::format("Invalid page={}; ignoring.", page));
+                 }
+@@ -721,6 +737,10 @@ void RoceReceiver::blocking_monitor()
+ #endif /* PERIODIC_STATUS */
+     }
+     check_async_events();
++    if (diagnostics) {
++        HSB_LOG_INFO("RoCE monitor stopped: nic={} completions={} completion_errors={} receive_path_failed={}",
++            ibv_name_, frame_count, completion_errors, receive_path_failed_.load());
++    }
+     free_ib_resources();
+     HSB_LOG_DEBUG("Closed.");
+ }
+@@ -769,9 +789,9 @@ void RoceReceiver::free_ib_resources()
+                 if (wc.status != IBV_WC_SUCCESS && wc.status != IBV_WC_WR_FLUSH_ERR) {
+                     non_flush_errors++;
+                     HSB_LOG_ERROR(
+-                        "Teardown CQ drain: qp_num={} wr_id={:#x} status={} ({}) vendor_err={:#x} byte_cnt={}",
++                        "Teardown CQ drain: qp_num={} wr_id={:#x} status={} ({}) vendor_err={:#x}",
+                         wc.qp_num, wc.wr_id, static_cast<int>(wc.status),
+-                        ibv_wc_status_str(wc.status), wc.vendor_err, wc.byte_len);
++                        ibv_wc_status_str(wc.status), wc.vendor_err);
+                 }
+             }
+             HSB_LOG_DEBUG("Teardown drained {} CQ entries ({} non-flush errors).",
+@@ -868,6 +888,17 @@ bool RoceReceiver::get_next_frame(unsigned timeout_ms, RoceReceiverMetadata& met
+         ready_.pop();
+
+         Hololink::FrameMetadata frame_metadata = get_frame_metadata(ready_descriptor->metadata_buffer_.get(), ready_descriptor->metadata_event_.get());
++        if (frame_metadata.bytes_written != cu_frame_size_) {
++            HSB_LOG_ERROR("RoCE short frame metadata: nic={} qp_num={} received_frame={} metadata_frame={} page={} imm={:#x} completion_psn={} metadata_psn={} bytes_written={} expected_bytes={}",
++                ibv_name_, qp_number_, ready_descriptor->received_frame_number_,
++                frame_metadata.frame_number, ready_descriptor->page_, ready_descriptor->imm_data_,
++                ready_descriptor->received_psn_, frame_metadata.psn,
++                frame_metadata.bytes_written, cu_frame_size_);
++        } else if (::getenv("HOLOLINK_ROCE_DIAGNOSTICS") && ready_descriptor->received_frame_number_ <= 16) {
++            HSB_LOG_INFO("RoCE frame metadata: frame={} page={} completion_psn={} metadata_psn={} bytes_written={}",
++                ready_descriptor->received_frame_number_, ready_descriptor->page_,
++                ready_descriptor->received_psn_, frame_metadata.psn, frame_metadata.bytes_written);
++        }
+         if (!same_psn(frame_metadata.psn, ready_descriptor->received_psn_)) {
+             // This indicates that the distal end rewrote the receiver buffer.
+             HSB_LOG_ERROR("Metadata psn={} but received_psn={}.", frame_metadata.psn, ready_descriptor->received_psn_);
+@@ -938,6 +969,39 @@ bool RoceReceiver::check_async_events()
+         }
+
+         auto event_type = ib_async_event.event_type;
++        // Use only the union member defined for this event type.
++        unsigned event_qp = 0;
++        bool receiver_cq = false;
++        int event_port = 0;
++        switch (event_type) {
++        case IBV_EVENT_QP_FATAL:
++        case IBV_EVENT_QP_REQ_ERR:
++        case IBV_EVENT_QP_ACCESS_ERR:
++        case IBV_EVENT_COMM_EST:
++        case IBV_EVENT_SQ_DRAINED:
++        case IBV_EVENT_PATH_MIG:
++        case IBV_EVENT_PATH_MIG_ERR:
++        case IBV_EVENT_QP_LAST_WQE_REACHED:
++            event_qp = ib_async_event.element.qp->qp_num;
++            break;
++        case IBV_EVENT_CQ_ERR:
++            receiver_cq = ib_async_event.element.cq == ib_cq_;
++            break;
++        case IBV_EVENT_PORT_ACTIVE:
++        case IBV_EVENT_PORT_ERR:
++        case IBV_EVENT_LID_CHANGE:
++        case IBV_EVENT_PKEY_CHANGE:
++        case IBV_EVENT_SM_CHANGE:
++        case IBV_EVENT_CLIENT_REREGISTER:
++        case IBV_EVENT_GID_CHANGE:
++            event_port = ib_async_event.element.port_num;
++            break;
++        default:
++            break;
++        }
++        HSB_LOG_INFO("RoCE async event: nic={} type={} ({}) event_qp={} receiver_qp={} receiver_cq={} event_port={}",
++            ibv_name_, static_cast<int>(event_type), ibv_event_type_str(event_type),
++            event_qp, qp_number_, receiver_cq, event_port);
+         switch (event_type) {
+         case IBV_EVENT_COMM_EST:
+             // Communication established isn't an error; don't complain about it

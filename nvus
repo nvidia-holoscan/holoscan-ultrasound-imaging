@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+repo=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+terminal=()
+if [[ -t 0 && -t 1 ]]; then terminal=(-it); fi
+gpu=()
+if [[ -n ${NVUS_CUDA_VISIBLE_DEVICES:-} ]]; then gpu=(-e "CUDA_VISIBLE_DEVICES=$NVUS_CUDA_VISIBLE_DEVICES"); fi
+exec docker exec "${terminal[@]}" -w "$repo" -e NVUS_USE_INSTALLED=1 \
+    -e "DISPLAY=${NVUS_DISPLAY:-:1}" -e "XAUTHORITY=${NVUS_XAUTHORITY:-/home/nvidia/.Xauthority}" \
+    -e "MIMICKNET_ENGINE_PATH=${MIMICKNET_ENGINE_PATH:-$repo/.runtime/mimicknet.engine}" \
+    "${gpu[@]}" nvus \
+    /opt/nvus-env/bin/python -m nvus.cli "$@"

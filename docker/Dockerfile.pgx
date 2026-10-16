@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1
+ARG SDK_IMAGE
+FROM ${SDK_IMAGE} AS sdk
+USER root
+ENV CUDAARCHS=121 HOLOLINK_USE_SCCACHE=OFF CMAKE_BUILD_PARALLEL_LEVEL=6
+RUN python3 -m pip install --no-cache-dir cmake-build-extension==0.6.1 wheel==0.45.1
+COPY --from=hsb . /opt/hsb
+COPY docker/patches /opt/hsb-patches
+WORKDIR /opt/hsb
+RUN for patch in /opt/hsb-patches/*.patch; do \
+        git apply --reverse --check "$patch" 2>/dev/null || git apply "$patch" || exit 1; \
+    done
+WORKDIR /opt/hsb/python
+# Force RoCE at build time without exposing any devices to the build.
+RUN python3 setup.py build_ext \
+    -D'HOLOLINK_BUILD_ROCE=ON;HOLOLINK_BUILD_TESTS=OFF;HOLOLINK_BUILD_EXAMPLES=OFF;HOLOLINK_BUILD_TOOLS=OFF;HOLOLINK_BUILD_GPUNETIO_ROCE=OFF' \
+    bdist_wheel
+
+FROM ${SDK_IMAGE}
+USER root
+ARG HSB_REVISION
+LABEL com.nvidia.nvus.hsb.revision=${HSB_REVISION}
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libnvinfer-bin=10.16.1.11-1+cuda13.2
+COPY --from=sdk /opt/hsb/python/dist/*.whl /opt/wheels/
+COPY docker/requirements-pgx.txt /opt/nvus/requirements.txt
+RUN python3 -m pip install --no-cache-dir /opt/wheels/*.whl \
+    && python3 -m pip install --no-cache-dir -r /opt/nvus/requirements.txt
+COPY docker/patches /opt/nvus/hsb-patches
+# ./setup installs nvus from the mounted checkout.

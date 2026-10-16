@@ -1,0 +1,70 @@
+diff --git a/src/hololink/operators/roce_receiver/roce_receiver.cpp b/src/hololink/operators/roce_receiver/roce_receiver.cpp
+index 23a20f4..7579a24 100644
+--- a/src/hololink/operators/roce_receiver/roce_receiver.cpp
++++ b/src/hololink/operators/roce_receiver/roce_receiver.cpp
+@@ -291,7 +291,7 @@ bool RoceReceiver::start()
+     }
+
+     // Create a completion queue
+-    unsigned completion_queue_size = 100;
++    unsigned completion_queue_size = 4096;
+     ib_cq_ = ibv_create_cq(ib_context_, completion_queue_size, NULL, ib_completion_channel_, 0);
+     if (ib_cq_ == NULL) {
+         HSB_LOG_ERROR("Cannot create a completion queue, errno={}.", errno);
+@@ -358,7 +358,7 @@ bool RoceReceiver::start()
+         .recv_cq = ib_cq_,
+         .cap = {
+             .max_send_wr = 2048,
+-            .max_recv_wr = 2048,
++            .max_recv_wr = completion_queue_size,
+             .max_send_sge = 1,
+             .max_recv_sge = 1,
+         },
+@@ -389,7 +389,8 @@ bool RoceReceiver::start()
+     }
+
+     // Set up the list of work requests
+-    for (unsigned i = 0x1000; i < 0x1100; i++) {
++    // Every posted receive can generate a CQ entry before the monitor polls.
++    for (unsigned i = 0x1000; i < 0x1000 + completion_queue_size; i++) {
+         struct ibv_recv_wr ib_wr = {
+             .wr_id = i,
+             .next = NULL,
+@@ -631,24 +632,23 @@ void RoceReceiver::blocking_monitor()
+                     throw std::runtime_error(fmt::format("pthread_mutex_lock returned r={}.", r));
+                 }
+
++                // Frames queue as long as descriptors are available, even before the
++                // consumer's first get_next_frame: replacing the queued frame during
++                // the consumer-attach window silently lost the first frame of every
++                // fast back-to-back burst (N requested, N-1 delivered, the last
++                // compute starved). Only recycle when the ring is truly exhausted,
++                // and always account the loss in dropped_.
+                 RoceReceiverDescriptor* descriptor;
+-                if (!consumer_ready_ && !ready_.empty()) {
+-                    // if the consumer is not ready yet, avoid queueing up more frames
++                if (available_.empty()) {
+                     descriptor = ready_.front();
+                     ready_.pop();
+-                } else {
+-                    if (available_.empty()) {
+-                        // if there is no available descriptor use the oldest ready one and drop the frame
+-                        descriptor = ready_.front();
+-                        ready_.pop();
+-                        if (consumer_ready_) {
+-                            HSB_LOG_DEBUG("No available descriptors, dropping oldest ready frame {}.", descriptor->received_frame_number_);
+-                        }
+-                        dropped_++;
+-                    } else {
+-                        descriptor = available_.front();
+-                        available_.pop();
++                    if (consumer_ready_) {
++                        HSB_LOG_DEBUG("No available descriptors, dropping oldest ready frame {}.", descriptor->received_frame_number_);
+                     }
++                    dropped_++;
++                } else {
++                    descriptor = available_.front();
++                    available_.pop();
+                 }
+
+                 descriptor->page_ = page;

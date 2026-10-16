@@ -1,0 +1,182 @@
+diff --git a/src/hololink/operators/roce_receiver/roce_receiver.cpp b/src/hololink/operators/roce_receiver/roce_receiver.cpp
+index 23a20f4..dac8409 100644
+--- a/src/hololink/operators/roce_receiver/roce_receiver.cpp
++++ b/src/hololink/operators/roce_receiver/roce_receiver.cpp
+@@ -86,6 +86,7 @@ RoceReceiver::RoceReceiver(
+     , ready_condition_(PTHREAD_COND_INITIALIZER)
+     , dropped_(0)
+     , done_(false)
++    , receive_path_failed_(false)
+     , control_r_(-1)
+     , control_w_(-1)
+     , rx_write_requests_fd_(-1)
+@@ -153,6 +154,9 @@ bool RoceReceiver::start()
+ {
+     HSB_LOG_DEBUG("Starting.");
+
++    // New IB resources should not inherit a previous run's failure state.
++    receive_path_failed_ = false;
++
+     // ibv calls seem to have trouble with
+     // reentrancy.  No problem; since we're only
+     // at startup, run just one at a time.  This
+@@ -536,7 +540,9 @@ void RoceReceiver::blocking_monitor()
+         throw std::runtime_error(fmt::format("ibv_req_notify_cq failed, errno={}.", r));
+     }
+
+-    struct pollfd poll_fds[2] = {
++    // A dead CQ stops signaling its completion channel. Poll async_fd so fatal
++    // CQ/QP events can wake and terminate the receive path.
++    struct pollfd poll_fds[3] = {
+         {
+             .fd = control_r_,
+             .events = POLLIN | POLLHUP | POLLERR,
+@@ -544,6 +550,10 @@ void RoceReceiver::blocking_monitor()
+         {
+             .fd = ib_completion_channel_->fd,
+             .events = POLLIN | POLLHUP | POLLERR,
++        },
++        {
++            .fd = ib_context_->async_fd,
++            .events = POLLIN | POLLHUP | POLLERR,
+         }
+     };
+
+@@ -572,6 +582,11 @@ void RoceReceiver::blocking_monitor()
+             break;
+         }
+
++        // Drain async events immediately because a dead CQ cannot wake us again.
++        if (poll_fds[2].revents) {
++            check_async_events();
++        }
++
+         // CQ event.  The Hololink device, on the last UDP/ROCE request, sends
+         // a write-immediate, which wakes us up here.  (We don't see any of the
+         // other network traffic at all--it's all RDMA'd directly to GPU memory.)
+@@ -607,6 +622,7 @@ void RoceReceiver::blocking_monitor()
+                         static_cast<int>(ib_wc.status), ibv_wc_status_str(ib_wc.status),
+                         ib_wc.vendor_err, static_cast<int>(ib_wc.opcode),
+                         ib_wc.byte_len, ib_wc.wc_flags);
++                    check_async_events();
+                     continue;
+                 }
+
+@@ -704,6 +720,7 @@ void RoceReceiver::blocking_monitor()
+         }
+ #endif /* PERIODIC_STATUS */
+     }
++    check_async_events();
+     free_ib_resources();
+     HSB_LOG_DEBUG("Closed.");
+ }
+@@ -738,6 +755,9 @@ void RoceReceiver::free_ib_resources()
+             HSB_LOG_ERROR("ibv_modify_qp to ERR failed, errno={}.", errno);
+         }
+
++        // Acknowledge affiliated events before destroy_qp/destroy_cq can wait on them.
++        check_async_events();
++
+         // Drain the CQ so all flushed WRs are consumed before
+         // we destroy the QP and deregister the MR.
+         if (ib_cq_ != NULL) {
+@@ -758,6 +778,7 @@ void RoceReceiver::free_ib_resources()
+                 drained, non_flush_errors);
+         }
+
++        check_async_events();
+         if (ibv_destroy_qp(ib_qp_)) {
+             HSB_LOG_ERROR("ibv_destroy_qp failed, errno={}.", errno);
+         }
+@@ -825,6 +846,11 @@ bool RoceReceiver::get_next_frame(unsigned timeout_ms, RoceReceiverMetadata& met
+
+     bool result = true;
+     while (ready_.empty()) {
++        // A dead receive path cannot produce another frame.
++        if (receive_path_failed_.load()) {
++            result = false;
++            break;
++        }
+         status = pthread_cond_timedwait(&ready_condition_, &ready_mutex_, &timeout);
+         if (status == ETIMEDOUT) {
+             result = false;
+@@ -881,7 +907,9 @@ bool RoceReceiver::frames_ready()
+     if (status != 0) {
+         throw std::runtime_error(fmt::format("pthread_mutex_unlock returned status={}.", status));
+     }
+-    return !result;
++
++    // Failure makes get_next_frame() nonblocking, so keep the operator runnable.
++    return !result || receive_path_failed_.load();
+ }
+
+ const Hololink::FrameMetadata RoceReceiver::get_frame_metadata(void* metadata_buffer, CUevent metadata_event)
+@@ -899,6 +927,13 @@ bool RoceReceiver::check_async_events()
+     for (i = 0; i < 100; i++) {
+         int r = ibv_get_async_event(ib_context_, &ib_async_event);
+         if (r != 0) {
++            if (errno == EINTR) {
++                continue;
++            }
++            if (errno != EAGAIN && errno != EWOULDBLOCK) {
++                HSB_LOG_ERROR("RoCE ibv_get_async_event failed: nic={} errno={}", ibv_name_, errno);
++                receive_path_failed_ = true;
++            }
+             break;
+         }
+
+@@ -907,6 +942,17 @@ bool RoceReceiver::check_async_events()
+         case IBV_EVENT_COMM_EST:
+             // Communication established isn't an error; don't complain about it
+             break;
++        case IBV_EVENT_CQ_ERR:
++        case IBV_EVENT_QP_FATAL:
++        case IBV_EVENT_QP_REQ_ERR:
++        case IBV_EVENT_QP_ACCESS_ERR:
++        case IBV_EVENT_DEVICE_FATAL:
++            // These events permanently stop CQ/QP completion delivery.
++            HSB_LOG_ERROR("Fatal receive-path event: {} ({}); the completion "
++                          "queue is dead, no further frames will arrive.",
++                static_cast<int>(event_type), ibv_event_type_str(event_type));
++            receive_path_failed_ = true;
++            break;
+         default:
+             HSB_LOG_ERROR("ib_async_event.event_type={} ({}).", static_cast<int>(event_type), ibv_event_type_str(event_type));
+             break;
+@@ -914,6 +960,21 @@ bool RoceReceiver::check_async_events()
+
+         ibv_ack_async_event(&ib_async_event);
+     }
++
++    if (receive_path_failed_.load()) {
++        // Wake a consumer already waiting for a frame.
++        int r = pthread_mutex_lock(&ready_mutex_);
++        if (r != 0) {
++            throw std::runtime_error(fmt::format("pthread_mutex_lock returned r={}.", r));
++        }
++        pthread_cond_broadcast(&ready_condition_);
++        r = pthread_mutex_unlock(&ready_mutex_);
++        if (r != 0) {
++            throw std::runtime_error(fmt::format("pthread_mutex_unlock returned r={}.", r));
++        }
++        // Wake the operator's AsynchronousCondition.
++        frame_ready_(this[0]);
++    }
+     return true;
+ }
+
+diff --git a/src/hololink/operators/roce_receiver/roce_receiver.hpp b/src/hololink/operators/roce_receiver/roce_receiver.hpp
+index c745b51..484d16f 100644
+--- a/src/hololink/operators/roce_receiver/roce_receiver.hpp
++++ b/src/hololink/operators/roce_receiver/roce_receiver.hpp
+@@ -168,7 +168,10 @@ protected:
+
+     bool volatile done_;
+
++    /** True after an asynchronous event makes the receive path unusable. */
++    std::atomic<bool> receive_path_failed_;
++
+     int control_r_, control_w_;
+     int rx_write_requests_fd_;
+
+     common::UniqueCUstream metadata_stream_;
