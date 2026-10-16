@@ -1,0 +1,11 @@
+diff --git a/python/tools/hololink.py b/python/tools/hololink.py
+--- a/python/tools/hololink.py
++++ b/python/tools/hololink.py
+@@ -726,6 +726,7 @@
+     def check_fpga_uuid(self, fpga_uuid):
+         supported_fpga_uuids = {
+             "7a377bf7-76cb-4756-a4c5-7dddaed8354b",  # Stratix 10 HSB
++            "ac192bb6-24be-c23f-d07e-2e130d9d2f0f",  # TI ultrasound
+         }
+         return fpga_uuid in supported_fpga_uuids
+ 

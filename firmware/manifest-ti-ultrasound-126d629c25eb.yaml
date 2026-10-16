@@ -1,0 +1,15 @@
+hololink:
+  archive:
+    enrollment_date: '2026-10-15T21:33:12.487489+00:00'
+    version: 126d629c25eb
+  content:
+    ti_ultrasound_126d629c25eb.rpd:
+      filename: ti_ultrasound_126d629c25eb.rpd
+      md5: f6a3f6c601a3b746730e311c3b1f78cf
+      size: 6393856
+  fpga_uuid:
+  - ac192bb6-24be-c23f-d07e-2e130d9d2f0f
+  images:
+  - content: ti_ultrasound_126d629c25eb.rpd
+    context: stratix
+  strategy: sensor_bridge_100

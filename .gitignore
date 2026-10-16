@@ -1,0 +1,26 @@
+__pycache__/
+*.pyc
+
+# Local experiment data and licensed/generated inference artifacts
+captures/
+.runtime/
+firmware/*.rpd
+third_party/mimicknet/*.h5
+third_party/mimicknet/*.onnx
+third_party/mimicknet/*.engine
+
+# Native build artifacts
+*.so
+/build/
+/dist/
+.venv/
+.venv-sdk/
+
+# Local credentials and tooling state
+.env
+.env.*
+!.env.example
+.cache/
+.pytest_cache/
+*.egg-info/
+.DS_Store

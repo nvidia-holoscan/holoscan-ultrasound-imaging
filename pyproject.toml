@@ -1,0 +1,24 @@
+[build-system]
+requires = ["scikit-build-core==1.0.3", "nanobind==3.0.1"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "nvus"
+version = "0.1.0"
+description = "Holoscan Ultrasound Imaging reference architecture"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.26", "matplotlib>=3.8"]
+readme = "README.md"
+license = "Apache-2.0"
+
+[project.scripts]
+nvus = "nvus.cli:main"
+
+[project.optional-dependencies]
+gpu = ["cupy-cuda12x>=13,<15", "scipy>=1.12"]
+gpu-cu13 = ["cupy-cuda13x>=14,<15", "scipy>=1.12"]
+display = ["pygame>=2.6,<3", "Pillow>=10"]
+
+[tool.scikit-build]
+cmake.args = ["-DNVUS_BUILD_PYTHON=ON"]
+wheel.packages = ["python/nvus"]

@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+# Software preparation only; never initialize the board or transmit.
+set -euo pipefail
+repo=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+hsb=$repo/.runtime/hsb
+version=$(python3 -c 'import sys, tomllib; print(tomllib.load(open(sys.argv[1], "rb"))["project"]["version"])' "$repo/pyproject.toml")
+HSB_REPOSITORY=${HSB_REPOSITORY:-https://github.com/nvidia-holoscan/holoscan-sensor-bridge.git}
+revision=${HSB_REVISION:-1df133d4c78a6921249be4b147d65554aa8efa68}
+sdk_image=nvus-hsb:$revision
+image=nvus:$version
+dry_run=false
+rebuild=false
+mimicknet=false
+for option in "$@"; do
+    case "$option" in
+        --dry-run) dry_run=true ;;
+        --rebuild) rebuild=true ;;
+        --mimicknet) mimicknet=true ;;
+        -h|--help) echo "Usage: ./setup [--rebuild] [--mimicknet] [--dry-run]"; exit 0 ;;
+        *) echo "Unknown option: $option" >&2; exit 2 ;;
+    esac
+done
+[[ $revision =~ ^[0-9a-f]{40}$ ]] || { echo "HSB_REVISION must be a full commit SHA." >&2; exit 2; }
+
+run() {
+    if $dry_run; then printf '%q ' "$@"; printf '\n'; else "$@"; fi
+}
+
+same_path_mount() {
+    local source destination
+    while IFS=$'\t' read -r source destination; do
+        if [[ $source == "$destination" &&
+              ( $repo == "$source" || $repo == "$source/"* ) ]]; then
+            return 0
+        fi
+    done < <(docker inspect --format \
+        '{{range .Mounts}}{{if .RW}}{{printf "%s\t%s\n" .Source .Destination}}{{end}}{{end}}' nvus)
+    return 1
+}
+
+docker info >/dev/null
+existing=false
+if docker container inspect nvus >/dev/null 2>&1; then existing=true; fi
+
+check_rebuild() {
+    same_path_mount || { echo "Refusing to replace nvus: different repository mount." >&2; exit 1; }
+    if [[ $(docker inspect --format '{{.State.Running}}' nvus) == true &&
+          $(docker top nvus -eo pid,args | awk 'NR>1 {$1=""; sub(/^ /, ""); print}') != 'sleep infinity' ]]; then
+        echo "Stop all nvus jobs and container shells before rebuilding; nothing stopped." >&2
+        exit 1
+    fi
+}
+
+if $rebuild && $existing; then check_rebuild; fi
+if ! $rebuild && docker image inspect "$image" >/dev/null 2>&1; then
+    [[ $(docker image inspect --format '{{index .Config.Labels "com.nvidia.nvus.hsb.revision"}}' "$image") == "$revision" ]] || {
+        echo "HSB revision changed; stop nvus jobs and run ./setup --rebuild." >&2
+        exit 1
+    }
+fi
+if [[ -e $hsb ]]; then
+    [[ $(git -C "$hsb" rev-parse --show-toplevel) == "$hsb" &&
+       -z $(git -C "$hsb" status --porcelain --untracked-files=all) ]] || {
+        echo "$hsb must be a clean SDK checkout; leaving it untouched." >&2
+        exit 1
+    }
+else
+    run git init "$hsb"
+fi
+if [[ $(git -C "$hsb" rev-parse HEAD 2>/dev/null || true) != "$revision" ]]; then
+    run git -C "$hsb" fetch --depth=1 "$HSB_REPOSITORY" "$revision"
+    run env GIT_LFS_SKIP_SMUDGE=1 git -C "$hsb" checkout --detach "$revision"
+fi
+if ! docker image inspect "$sdk_image" >/dev/null 2>&1; then
+    run mkdir -p "$repo/.runtime/empty-pva"
+    run docker build --network=host --build-arg CONTAINER_TYPE=cuda13 \
+        --build-arg HSDK_VERSION=4.4.0 --build-arg "IBV_DEVICES=$(ls /sys/class/infiniband)" \
+        --build-context "pva-sdk=$repo/.runtime/empty-pva" \
+        -f "$hsb/docker/Dockerfile" -t "$sdk_image" "$hsb"
+fi
+if $rebuild || ! docker image inspect "$image" >/dev/null 2>&1; then
+    run docker build --build-context "hsb=$hsb" --build-arg "SDK_IMAGE=$sdk_image" \
+        --build-arg "HSB_REVISION=$revision" -f "$repo/docker/Dockerfile.pgx" -t "$image" "$repo"
+fi
+if $rebuild && $existing; then
+    check_rebuild
+    run docker stop nvus
+    run docker rm nvus
+    existing=false
+fi
+if $existing; then
+    [[ $(docker inspect --format '{{.Image}}' nvus) == \
+       "$(docker image inspect --format '{{.Id}}' "$image")" ]] && same_path_mount || {
+        echo "Existing nvus container has a different image or mount; leaving it untouched." >&2
+        exit 1
+    }
+    if [[ $(docker inspect --format '{{.State.Running}}' nvus) != true ]]; then
+        run docker start nvus
+    fi
+else
+    [[ -d /dev/infiniband ]] || { echo "Install the host NIC/RDMA drivers first." >&2; exit 1; }
+    options=(--user "$(id -u):$(id -g)" --gpus all --runtime=nvidia --network host --shm-size 1g
+        --ulimit memlock=-1:-1 --ulimit stack=33554432 --device /dev/infiniband
+        --mount "type=bind,source=$repo,target=$repo" --workdir "$repo"
+        -e NVIDIA_DRIVER_CAPABILITIES=graphics,video,compute,utility,display -e PIP_NO_CACHE_DIR=1)
+    if [[ -d /tmp/.X11-unix ]]; then
+        options+=(--mount type=bind,source=/tmp/.X11-unix,target=/tmp/.X11-unix,readonly)
+    fi
+    authority=${XAUTHORITY:-$HOME/.Xauthority}
+    if [[ -f $authority ]]; then
+        options+=(--mount "type=bind,source=$authority,target=/home/nvidia/.Xauthority,readonly")
+    fi
+    run docker run --detach --name nvus "${options[@]}" "$image" sleep infinity
+fi
+
+if ! $existing || ! docker exec nvus test -x /opt/nvus-env/bin/nvus 2>/dev/null; then
+    if ! $dry_run && docker exec nvus test -e /opt/nvus-env 2>/dev/null; then
+        echo "Incomplete /opt/nvus-env; leaving it untouched." >&2
+        exit 1
+    fi
+    run docker exec --user root nvus install -d -o "$(id -u)" -g "$(id -g)" /opt/nvus-env
+    run docker exec -w "$repo" nvus bash -euc '
+        python3 -m venv --without-pip --system-site-packages /opt/nvus-env
+        python3 -m pip --python /opt/nvus-env install -r docker/requirements-pgx.txt
+        python3 -m pip --python /opt/nvus-env install . \
+            -Ccmake.define.NVUS_WITH_HOLOLINK=ON
+    '
+fi
+run docker exec nvus /opt/nvus-env/bin/python -c \
+    'from nvus import _scanner; assert _scanner.sdk_available, "Expected an SDK-enabled installation"'
+run docker exec nvus /opt/nvus-env/bin/nvus doctor
+if $mimicknet; then
+    run docker exec nvus python3 -m pip --python /opt/nvus-env install h5py==3.14.0 onnx==1.19.0
+    run docker exec -w "$repo" nvus /opt/nvus-env/bin/python -m nvus.mimicknet_setup \
+        "${MIMICKNET_ENGINE_PATH:-$repo/.runtime/mimicknet.engine}"
+fi
+if ! $dry_run; then echo "Ready: ./nvus doctor"; fi

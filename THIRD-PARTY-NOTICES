@@ -1,0 +1,21 @@
+Third-party software included with or used by this project:
+
+MimickNet (software)
+Copyright Ouwen Huang et al.
+Source: https://github.com/Ouwen/MimickNet (commit a3cd4e972aa7a33c1fa2948f884ad9af5154611e)
+Licensed under Apache-2.0
+License text: third_party/mimicknet/SOFTWARE_LICENSE
+Attribution: Ouwen Huang et al., MimickNet, Mimicking Clinical Image Post-Processing
+Under Black-Box Constraints, IEEE Transactions on Medical Imaging 39(6), 2277–2286 (2020),
+DOI: 10.1109/TMI.2020.2970867.
+
+MimickNet model weights (not distributed in this repository)
+The optional luminance-adjusted model identified upstream as CC BY-NC 4.0 is not bundled.
+Obtain it separately under the applicable license; see third_party/mimicknet/README.md.
+
+Runtime dependencies (not vendored; install from upstream):
+- Holoscan Sensor Bridge / hololink (NVIDIA)
+- NumPy
+- CuPy
+- SciPy
+- TensorRT (optional, MimickNet path)
