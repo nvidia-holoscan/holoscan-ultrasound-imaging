@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 """Live PW4cm with a C++ policy/compiler/control loop and Python setup/viewer.
 
 Inspection and simulation never open hardware. With --commissioning:

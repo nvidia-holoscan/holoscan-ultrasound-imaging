@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 """CLI adapter for the commissioned PW4cm demo; no second acquisition path."""
 import argparse
 from contextlib import redirect_stdout

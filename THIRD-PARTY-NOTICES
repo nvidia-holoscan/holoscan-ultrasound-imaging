@@ -1,21 +1,165 @@
-Third-party software included with or used by this project:
+THIRD-PARTY NOTICES
 
-MimickNet (software)
+MimickNet attribution preserved in this file:
 Copyright Ouwen Huang et al.
-Source: https://github.com/Ouwen/MimickNet (commit a3cd4e972aa7a33c1fa2948f884ad9af5154611e)
-Licensed under Apache-2.0
-License text: third_party/mimicknet/SOFTWARE_LICENSE
-Attribution: Ouwen Huang et al., MimickNet, Mimicking Clinical Image Post-Processing
-Under Black-Box Constraints, IEEE Transactions on Medical Imaging 39(6), 2277–2286 (2020),
-DOI: 10.1109/TMI.2020.2970867.
 
-MimickNet model weights (not distributed in this repository)
-The optional luminance-adjusted model identified upstream as CC BY-NC 4.0 is not bundled.
-Obtain it separately under the applicable license; see third_party/mimicknet/README.md.
+This file distinguishes third-party materials distributed in this source
+repository from dependencies that setup or package installation obtains
+separately. The project-level Apache-2.0 license does not replace any
+third-party terms identified below.
 
-Runtime dependencies (not vendored; install from upstream):
-- Holoscan Sensor Bridge / hololink (NVIDIA)
+COMPONENTS DISTRIBUTED IN THIS REPOSITORY
+
+Altera FPGA IP
+- Version: IP component versions are recorded in the files under
+  fpga/build/ip; the checked-in project was last generated with Quartus Prime
+  25.1.1 SP1.31 Pro Edition.
+- License: Altera license with Altera-product-only use restrictions.
+- License file: fpga/build/ip/LICENSE
+- Upstream: https://www.altera.com/
+- Role: FPGA build and hardware implementation.
+- Distribution: Altera IP metadata and configuration files are included under
+  fpga/build/ip. The existing license must remain with those files. In
+  particular, the software may be used solely for design and implementation on
+  an Altera product.
+
+MimickNet software
+- Version: upstream commit a3cd4e972aa7a33c1fa2948f884ad9af5154611e.
+- License: Apache-2.0.
+- License file: third_party/mimicknet/SOFTWARE_LICENSE
+- Upstream:
+  https://github.com/Ouwen/MimickNet/tree/a3cd4e972aa7a33c1fa2948f884ad9af5154611e
+- Role: optional ultrasound image post-processing integration.
+- Distribution: this repository includes MimickNet integration and preserves
+  the upstream software license and attribution. It does not bundle the
+  upstream model weights.
+- Attribution: Ouwen Huang et al., "MimickNet, Mimicking Clinical Image
+  Post-Processing Under Black-Box Constraints," IEEE Transactions on Medical
+  Imaging 39(6), 2277-2286 (2020), DOI: 10.1109/TMI.2020.2970867.
+
+SEPARATELY OBTAINED RUNTIME DEPENDENCIES
+
+The following components are not vendored in this source repository. They are
+installed from their upstream distributions or supplied by the SDK/container
+environment. Their upstream licenses apply to the copies that are installed.
+
+- Holoscan Sensor Bridge / hololink
+  - Version: 2.7.0, commit 1df133d4c78a6921249be4b147d65554aa8efa68.
+  - License: Apache-2.0.
+  - Upstream:
+    https://github.com/nvidia-holoscan/holoscan-sensor-bridge/tree/1df133d4c78a6921249be4b147d65554aa8efa68
+  - Role: runtime hardware enumeration, control, and RoCE transport; build
+    input fetched by setup.
+- NVIDIA Holoscan SDK
+  - Version: 4.4.0.
+  - License: Apache-2.0.
+  - Upstream: https://github.com/nvidia-holoscan/holoscan-sdk/tree/v4.4.0
+  - Role: runtime and build dependency supplied by the HSB SDK image.
+- NVIDIA CUDA Toolkit
+  - Version: CUDA 13 family supplied by the SDK image.
+  - License: NVIDIA CUDA Toolkit End User License Agreement.
+  - Terms: https://docs.nvidia.com/cuda/eula/
+  - Role: GPU runtime and native build dependency.
 - NumPy
+  - Version: >=1.26; PGX environment pin 2.5.3.
+  - License: BSD-3-Clause.
+  - Upstream: https://github.com/numpy/numpy
+  - Role: core runtime numerical arrays.
+- Matplotlib
+  - Version: >=3.8, resolved at installation time.
+  - License: Matplotlib License (PSF-based).
+  - Upstream: https://github.com/matplotlib/matplotlib
+  - Role: runtime plotting and visualization.
 - CuPy
+  - Version: cupy-cuda12x >=13,<15 or cupy-cuda13x >=14,<15; PGX environment
+    pin cupy-cuda13x 14.2.0.
+  - License: MIT.
+  - Upstream: https://github.com/cupy/cupy
+  - Role: optional GPU reconstruction runtime; installed in the PGX image.
 - SciPy
-- TensorRT (optional, MimickNet path)
+  - Version: >=1.12; PGX environment pin 1.18.0.
+  - License: BSD-3-Clause.
+  - Upstream: https://github.com/scipy/scipy
+  - Role: optional GPU/numerical runtime support.
+- pygame
+  - Version: >=2.6,<3; PGX environment pin 2.6.1.
+  - License: LGPL-2.1.
+  - Upstream: https://github.com/pygame/pygame
+  - Role: optional display runtime.
+- Pillow
+  - Version: >=10; PGX environment pin 12.3.0.
+  - License: HPND.
+  - Upstream: https://github.com/python-pillow/Pillow
+  - Role: optional image/display runtime and test support.
+- Requests
+  - Version: 2.32.5.
+  - License: Apache-2.0.
+  - Upstream: https://github.com/psf/requests/tree/v2.32.5
+  - Role: runtime dependency installed in the PGX environment.
+- PyYAML
+  - Version: 6.0.3.
+  - License: MIT.
+  - Upstream: https://github.com/yaml/pyyaml/tree/6.0.3
+  - Role: runtime configuration dependency installed in the PGX environment.
+- NVIDIA TensorRT
+  - Version: 10.16.1.11 (bindings and runtime package).
+  - License: NVIDIA TensorRT Software License Agreement.
+  - Terms: https://docs.nvidia.com/deeplearning/tensorrt/sla/index.html
+  - Role: optional MimickNet inference runtime.
+
+SEPARATELY OBTAINED BUILD DEPENDENCIES
+
+- scikit-build-core
+  - Version: 1.0.3.
+  - License: MIT.
+  - Upstream: https://github.com/scikit-build/scikit-build-core/tree/v1.0.3
+  - Role: Python package build backend.
+- nanobind
+  - Version: 3.0.1.
+  - License: BSD-3-Clause.
+  - Upstream: https://github.com/wjakob/nanobind/tree/v3.0.1
+  - Role: build-time generation of Python bindings.
+- CMake
+  - Version: >=3.18; concrete version supplied by the SDK image.
+  - License: BSD-3-Clause.
+  - Upstream: https://github.com/Kitware/CMake
+  - Role: native C++/CUDA build tool.
+- cmake-build-extension
+  - Version: 0.6.1.
+  - License: MIT.
+  - Upstream:
+    https://github.com/diegoferigo/cmake-build-extension/tree/v0.6.1
+  - Role: HSB wheel build tool installed in the container build stage.
+- wheel
+  - Version: 0.45.1.
+  - License: MIT.
+  - Upstream: https://github.com/pypa/wheel/tree/0.45.1
+  - Role: Python wheel build tool.
+
+SEPARATELY OBTAINED OPTIONAL MODEL-PREPARATION DEPENDENCIES
+
+- h5py
+  - Version: 3.14.0.
+  - License: BSD-3-Clause.
+  - Upstream: https://github.com/h5py/h5py/tree/3.14.0
+  - Role: optional MimickNet source-weight loading.
+- ONNX
+  - Version: 1.19.0.
+  - License: Apache-2.0.
+  - Upstream: https://github.com/onnx/onnx/tree/v1.19.0
+  - Role: optional MimickNet export and reference validation.
+
+OPTIONAL EXTERNAL MODEL MATERIALS
+
+MimickNet model weights
+- Version: luminance-adjusted model from upstream commit
+  a3cd4e972aa7a33c1fa2948f884ad9af5154611e; expected source-weight SHA-256
+  5291c75b0fcac0637c662b8723c8ca3678b75d46b5d6115ac9defe10beed8d80.
+- License: CC BY-NC 4.0, as identified by the upstream project.
+- Upstream:
+  https://github.com/Ouwen/MimickNet/tree/a3cd4e972aa7a33c1fa2948f884ad9af5154611e
+- Role: optional model weights for image post-processing.
+- Distribution: not included in this repository. Setup downloads the weights
+  only when explicitly requested. See third_party/mimicknet/README.md. The
+  Apache-2.0 MimickNet software license does not apply to or replace the model
+  weights' CC BY-NC 4.0 terms.

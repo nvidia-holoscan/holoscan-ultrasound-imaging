@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 // Bounded NIC loopback commissioning check; never opens or fires the HSB.
 #include <cuda.h>
 #include <infiniband/verbs.h>

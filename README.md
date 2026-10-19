@@ -250,5 +250,22 @@ NVUS_CUDA_VISIBLE_DEVICES=GPU-UUID ./nvus run pw4cm --ibv-name DEVICE --dry-run
 
 ## License
 
-The source is Apache-2.0. See [LICENSE](LICENSE) and
-[THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES) for dependency and model terms.
+The NVIDIA-authored source is licensed under Apache-2.0. See [LICENSE](LICENSE).
+Third-party and external components retain their separate terms:
+
+- The [Altera FPGA IP directory](fpga/build/ip) is governed by its
+  [Altera license](fpga/build/ip/LICENSE), including its Altera-product-only use
+  restrictions. The project Apache-2.0 license does not replace those terms.
+- The MimickNet software component is governed by its
+  [Apache-2.0 software license](third_party/mimicknet/SOFTWARE_LICENSE).
+- Optional MimickNet model weights are not distributed in this repository and
+  remain separately governed by the upstream CC BY-NC 4.0 terms described in
+  the [MimickNet documentation](third_party/mimicknet/README.md). The software
+  license does not replace the model-weight terms.
+
+See [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES) for the complete component and
+dependency inventory.
+
+### NOTICE AND DISCLAIMER
+
+NOTICE AND DISCLAIMER: This software automatically retrieves, accesses or interacts with external materials. Those retrieved materials are not distributed with this software and are governed solely by separate terms, conditions and licenses.

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 """Offline end-to-end RF inspection and receive-only register trace; no devices."""
 import ast
 from contextlib import ExitStack, contextmanager, redirect_stdout, redirect_stderr
