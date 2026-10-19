@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 """Full-screen clinical viewer; independent refresh, never an acquisition owner."""
 from collections import deque
 import multiprocessing as mp

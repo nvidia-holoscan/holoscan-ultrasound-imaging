@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 #include "nvus/hololink_transport.hpp"
 #include "nvus/cuda_buffer.hpp"
 #include "nvus/thread_affinity.hpp"

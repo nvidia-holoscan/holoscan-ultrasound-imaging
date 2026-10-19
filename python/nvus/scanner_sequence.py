@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 """Immutable acquisition metadata for reconstruction and recording."""
 from dataclasses import asdict, dataclass, field
 
