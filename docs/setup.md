@@ -73,9 +73,16 @@ ping -c 3 192.168.0.2
 # Expect: three replies from 192.168.0.2.
 ```
 
-Check: `ping` receives replies from `192.168.0.2`.
-
 ## 4. Install the software
+
+`./setup` fetches the pinned HSB SDK, builds the project images, creates or starts
+container `nvus` with the project mounted, installs the package in `/opt/nvus-env`,
+and checks software dependencies. It never transmits. Plain `./setup` reuses the
+installation; `./setup --dry-run` previews the steps.
+
+MimickNet is optional and uses [CC BY-NC 4.0 model terms](../third_party/mimicknet/README.md).
+Omit `--mimicknet` to install without enhancement. With it, setup downloads pinned
+weights and builds a TensorRT engine for this GPU.
 
 ```bash
 # Prepare the container and installed package; no transmission.
@@ -111,7 +118,6 @@ docker exec -it -w "$PWD/firmware" nvus \
 # Expect: programming, readback and reload complete; HSB version reported.
 ```
 
-Check: programming and readback complete, and HSB reports its version after reload.
 The manifest checks the local RPD size and MD5.
 
 ## 6. Disconnect HSB power and assemble the ultrasound hardware
@@ -195,8 +201,9 @@ ping -c 3 192.168.0.2
 # Expect: PASS, 4/4 frames, no pattern errors and a PNG path.
 ```
 
-Check: both report PASS, 4/4 frames and no pattern errors. Open the printed PNG paths.
-Do not proceed after a failed capture.
+Ensure both captures pass, then open the printed PNG paths. DC should show
+alternating high/low channel levels; ramp should show rising values that wrap
+around. Do not proceed after a failed capture.
 
 ## 9. Start imaging
 
@@ -219,13 +226,11 @@ Enable both TX high-voltage supply outputs to power the EVM's positive and negat
 # Expect: a live image; on exit, PW4cm: complete.
 ```
 
-Check that an image appears.
-
 ## 10. Stop
 
 Press Ctrl+C or exit the viewer. Wait for `PW4cm: complete` before disabling TX outputs.
 
-More options: [CLI guide](../README.md#cli), [optional MimickNet](../README.md#optional-mimicknet).
+More options: [CLI reference](cli.md), [MimickNet details](../third_party/mimicknet/README.md).
 
 ## 11. Next steps and development
 
@@ -249,8 +254,14 @@ repeat the receive-path checks before imaging.
 
 ### Update the software
 
+After source, SDK revision or patch changes, stop all jobs in `nvus`, then run:
+
 ```bash
-# Rebuild after source changes.
-./setup --rebuild
+# Omit --mimicknet if you do not use enhancement.
+./setup --rebuild --mimicknet
 # Expect: Ready: ./nvus doctor
 ```
+
+This replaces the container and its installed environment. Keep persistent files
+in the mounted project folder; container-local files are removed. A failed image
+build leaves the old container unchanged. Documentation-only changes need no rebuild.

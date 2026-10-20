@@ -20,7 +20,8 @@ RoCE receive/transmit); it is not part of this repository.
 
 ## Current documentation
 
-- [README.md](README.md): supported CLI and installation workflow.
+- [README.md](README.md): project introduction and quick run commands.
+- [docs/cli.md](docs/cli.md): CLI options and hardware debugging.
 - [docs/setup.md](docs/setup.md): host setup, assembly, FPGA programming and first imaging.
 - [docs/hardware.md](docs/hardware.md): parts and electrical limits.
 
