@@ -60,9 +60,15 @@ environment. Their upstream licenses apply to the copies that are installed.
   - License: NVIDIA CUDA Toolkit End User License Agreement.
   - Terms: https://docs.nvidia.com/cuda/eula/
   - Role: GPU runtime and native build dependency.
+- cuda.bindings (cuda-bindings)
+  - Version: supplied by the SDK/container environment.
+  - License: Apache-2.0.
+  - Upstream: https://github.com/NVIDIA/cuda-python
+  - Role: Python CUDA Driver API bindings used for primary-context management
+    and CLI dependency diagnostics.
 - NumPy
   - Version: >=1.26; PGX environment pin 2.5.3.
-  - License: BSD-3-Clause.
+  - License: BSD-3-Clause, 0BSD, MIT, Zlib, and CC0-1.0.
   - Upstream: https://github.com/numpy/numpy
   - Role: core runtime numerical arrays.
 - Matplotlib
@@ -88,7 +94,7 @@ environment. Their upstream licenses apply to the copies that are installed.
   - Role: optional display runtime.
 - Pillow
   - Version: >=10; PGX environment pin 12.3.0.
-  - License: HPND.
+  - License: MIT-CMU.
   - Upstream: https://github.com/python-pillow/Pillow
   - Role: optional image/display runtime and test support.
 - Requests
@@ -111,7 +117,7 @@ SEPARATELY OBTAINED BUILD DEPENDENCIES
 
 - scikit-build-core
   - Version: 1.0.3.
-  - License: MIT.
+  - License: Apache-2.0.
   - Upstream: https://github.com/scikit-build/scikit-build-core/tree/v1.0.3
   - Role: Python package build backend.
 - nanobind
