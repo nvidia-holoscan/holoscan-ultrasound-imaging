@@ -90,7 +90,7 @@ The NVIDIA-authored source is licensed under Apache-2.0. See [LICENSE](LICENSE).
 Third-party and external components retain their separate terms:
 
 - The [Altera FPGA IP directory](fpga/build/ip) is governed by its
-  [Altera license](fpga/build/ip/LICENSE), including its Altera-product-only use
+  [Altera license](fpga/build/LICENSE), including its Altera-product-only use
   restrictions. The project Apache-2.0 license does not replace those terms.
 - The MimickNet software component is governed by its
   [Apache-2.0 software license](third_party/mimicknet/SOFTWARE_LICENSE).

@@ -15,7 +15,7 @@ Altera FPGA IP
   fpga/build/ip; the checked-in project was last generated with Quartus Prime
   25.1.1 SP1.31 Pro Edition.
 - License: Altera license with Altera-product-only use restrictions.
-- License file: fpga/build/ip/LICENSE
+- License file: fpga/build/LICENSE
 - Upstream: https://www.altera.com/
 - Role: FPGA build and hardware implementation.
 - Distribution: Altera IP metadata and configuration files are included under
