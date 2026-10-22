@@ -20,7 +20,7 @@ This list describes an initial implementation, not an endorsement of product qua
 
 | Item | Quantity | Part / supplier | Action | Ordering notes |
 | --- | --- | --- | --- | --- |
-| GPU host | 1 | Lenovo ThinkStation PGX or NVIDIA DGX Spark, each with integrated ConnectX-7 NIC | ThinkStation PGX [(buy)](https://www.lenovo.com/buy/us/en/thinkstation-commercial-computers-0avz00a); DGX Spark [(buy)](https://marketplace.nvidia.com/en-us/enterprise/personal-ai-supercomputers/dgx-spark/) | Choose (at least) one. |
+| GPU host | 1 | Lenovo ThinkStation PGX or NVIDIA DGX Spark, each with integrated ConnectX-7 NIC | ThinkStation PGX [(buy)](https://www.lenovo.com/us/en/p/workstations/thinkstation-p-series/lenovo-thinkstation-pgx-sff/len102s0023); DGX Spark [(buy)](https://marketplace.nvidia.com/en-us/enterprise/personal-ai-supercomputers/dgx-spark/) | Choose (at least) one. |
 | Holoscan Sensor Bridge FPGA board | 1 | Terasic Stratix 10 Sensor Processing Kit, P0817 / S10-Holoscan; FPGA 1ST040EH2F35E2VG; 12 V DC input | [(buy)](https://www.terasic.com.tw/cgi-bin/page/archive.pl?Language=English&No=1340) | |
 | Ultrasound frontend | 1 | TI AFE5932EVM, including AFE5932 receivers and TX73L64 transmitters | [(buy)](https://www.ti.com/product/AFE5932EVM/part-details/AFE5932EVM?s=0e52e922150v17550f&login-check=true) | |
 | Probe | 1 | Sonosray L12-5 D | [(catalogue)](http://www.sonosray.com/en/Products/list.aspx?lcid=17&pid=50); [(request)](mailto:seven.wang@sonosray.com?subject=L12-5%20D%20probe%20inquiry&body=Hello%20Seven%2C%0A%0AI%20would%20like%20to%20inquire%20about%20the%20Sonosray%20L12-5%20D%20probe%20for%20the%20Holoscan%20Ultrasound%20Imaging%20reference%20architecture.%0A%0AThank%20you.) | |
